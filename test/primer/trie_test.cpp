@@ -282,4 +282,57 @@ TEST(TrieTest, PointerStability) {
   ASSERT_EQ(reinterpret_cast<uint64_t>(ptr_before), reinterpret_cast<uint64_t>(ptr_after));
 }
 
+TEST(TrieTest, MyTest1) {
+  auto trie = Trie();
+  trie = trie.Put<uint32_t>("testa", 2333);
+  trie = trie.Put<uint32_t>("testb", 2333);
+  trie = trie.Put<uint32_t>("testc", 2333);
+  trie = trie.Put<uint32_t>("testd", 2333);
+  trie = trie.Put<uint32_t>("teste", 2333);
+
+  auto trie1 = trie.Put<std::string>("testa", "qwer");
+  trie1 = trie1.Put<std::string>("testb", "qwer");
+  trie1 = trie1.Put<std::string>("testc", "qwer");
+  trie1 = trie1.Put<std::string>("testd", "qwer");
+  trie1 = trie1.Put<std::string>("teste", "qwer");
+
+  auto trie2 = trie1.Remove("testc");
+  trie2 = trie2.Remove("testa");
+  trie2 = trie2.Remove("teste");
+
+  ASSERT_EQ(trie.Get<uint32_t>("te"), nullptr);
+  ASSERT_EQ(*trie.Get<uint32_t>("testc"), 2333);
+  ASSERT_EQ(*trie.Get<uint32_t>("testa"), 2333);
+  ASSERT_EQ(*trie.Get<uint32_t>("teste"), 2333);
+  ASSERT_EQ(*trie1.Get<std::string>("testb"), "qwer");
+  ASSERT_EQ(*trie1.Get<std::string>("testd"), "qwer");
+  ASSERT_EQ(*trie1.Get<std::string>("testa"), "qwer");
+  ASSERT_EQ(*trie2.Get<std::string>("testb"), "qwer");
+  ASSERT_EQ(trie2.Get<std::string>("testc"), nullptr);
+  ASSERT_EQ(trie2.Get<std::string>("testa"), nullptr);
+}
+
+TEST(TrieTest, MyTest2) {
+  auto trie = Trie();
+  trie = trie.Put<uint32_t>("testa", 2333);
+  trie = trie.Put<uint32_t>("testb", 2333);
+  trie = trie.Put<uint32_t>("testc", 2333);
+
+  auto trie1 = trie.Put<std::string>("testa", "qwer");
+  trie1 = trie1.Put<std::string>("testc", "qwer");
+
+  auto trie2 = trie.Remove("testc");
+  trie2 = trie2.Remove("testb");
+
+  ASSERT_EQ(*trie.Get<uint32_t>("testb"), 2333);
+  ASSERT_EQ(*trie.Get<uint32_t>("testa"), 2333);
+  ASSERT_EQ(*trie.Get<uint32_t>("testc"), 2333);
+  ASSERT_EQ(*trie1.Get<std::string>("testa"), "qwer");
+  ASSERT_EQ(*trie1.Get<std::string>("testc"), "qwer");
+  ASSERT_EQ(*trie1.Get<uint32_t>("testb"), 2333);
+  ASSERT_EQ(*trie2.Get<uint32_t>("testa"), 2333);
+  ASSERT_EQ(trie2.Get<uint32_t>("testc"), nullptr);
+  ASSERT_EQ(trie2.Get<uint32_t>("testb"), nullptr);
+}
+
 }  // namespace bustub
