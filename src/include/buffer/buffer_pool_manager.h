@@ -192,6 +192,8 @@ class BufferPoolManager {
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
+  /** 把删除了的页面存起来 */
+  std::list<page_id_t> free_ids_;
 
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
@@ -205,6 +207,7 @@ class BufferPoolManager {
    */
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
+    free_ids_.push_back(page_id);
   }
 
   // TODO(student): You may add additional private members and helper functions

@@ -22,9 +22,9 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
                                      LogManager *log_manager)
     : pool_size_(pool_size), disk_scheduler_(std::make_unique<DiskScheduler>(disk_manager)), log_manager_(log_manager) {
   // TODO(students): remove this line after you have implemented the buffer pool manager
-  throw NotImplementedException(
-      "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
-      "exception line in `buffer_pool_manager.cpp`.");
+  // throw NotImplementedException(
+  //     "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
+  //     "exception line in `buffer_pool_manager.cpp`.");
 
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
@@ -38,23 +38,173 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
 
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
-auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * { return nullptr; }
+auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
+  std::lock_guard<std::mutex> lock(latch_);
+  frame_id_t fit;
+  if (free_list_.empty()) {
+    if (!replacer_->Evict(&fit)) {
+      return nullptr;
+    }
+    //如果脏页面被置换出去了，需要写到磁盘
+    Page &page = pages_[fit];
+    page_id_t temp = page.GetPageId();
+    page_table_.erase(temp);
+    page.WLatch();
+    if (page.IsDirty()) {
+      auto prom = disk_scheduler_->CreatePromise();
+      auto future = prom.get_future();
+      disk_scheduler_->Schedule({true, page.data_, temp, std::move(prom)});
+      page.is_dirty_ = false;
+      future.get();
+    }
+    page.ResetMemory();
+    page.WUnlatch();
+  } else {
+    fit = *free_list_.begin();
+    free_list_.pop_front();
+  }
+  page_id_t pit = AllocatePage();
+  *page_id = pit;
+  page_table_[pit] = fit;
+  replacer_->RecordAccess(fit);
+  replacer_->SetEvictable(fit, false);
+  Page &page = pages_[fit];
+  page.WLatch();
+  page.page_id_ = pit;
+  page.pin_count_++;
+  page.WUnlatch();
+  return &page;
+}
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-  return nullptr;
+  std::lock_guard<std::mutex> lock(latch_);
+  frame_id_t fit;
+  if (page_table_.count(page_id) != 0U) {
+    fit = page_table_.at(page_id);
+    replacer_->RecordAccess(fit, access_type);
+    replacer_->SetEvictable(fit, false);
+    return &pages_[fit];
+  }
+  if (free_list_.empty()) {
+    if (!replacer_->Evict(&fit)) {
+      return nullptr;
+    }
+    Page &page = pages_[fit];
+    page_id_t temp = page.GetPageId();
+    page_table_.erase(temp);
+    //如果脏页面被置换出去了，需要写到磁盘
+    page.WLatch();
+    if (page.IsDirty()) {
+      auto prom = disk_scheduler_->CreatePromise();
+      auto future = prom.get_future();
+      disk_scheduler_->Schedule({true, page.data_, temp, std::move(prom)});
+      page.is_dirty_ = false;
+      future.get();
+    }
+    page.ResetMemory();
+    page.WUnlatch();
+  } else {
+    fit = *free_list_.begin();
+    free_list_.pop_front();
+  }
+  page_table_[page_id] = fit;
+  replacer_->RecordAccess(fit);
+  replacer_->SetEvictable(fit, false);
+  Page &page = pages_[fit];
+  page.WLatch();
+  page.page_id_ = page_id;
+  page.pin_count_++;
+  auto prom = disk_scheduler_->CreatePromise();
+  auto future = prom.get_future();
+  disk_scheduler_->Schedule({false, page.data_, page_id, std::move(prom)});
+  future.get();
+  page.WUnlatch();
+  return &page;
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  return false;
+  std::lock_guard<std::mutex> lock(latch_);
+  if (page_table_.count(page_id) == 0U) {
+    return false;
+  }
+  frame_id_t fit = page_table_.at(page_id);
+  Page &page = pages_[fit];
+  page.WLatch();
+  if (page.GetPinCount() == 0) {
+    page.WUnlatch();
+    return false;
+  }
+  page.pin_count_--;
+  page.is_dirty_ = is_dirty;
+  if (page.GetPinCount() == 0) {
+    replacer_->SetEvictable(fit, true);
+  }
+  page.WUnlatch();
+  return true;
 }
 
-auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool { return false; }
+auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
+  std::lock_guard<std::mutex> lock(latch_);
+  if (page_table_.count(page_id) == 0U) {
+    return false;
+  }
+  frame_id_t fit = page_table_.at(page_id);
+  Page &page = pages_[fit];
+  page.WLatch();
+  auto prom = disk_scheduler_->CreatePromise();
+  auto future = prom.get_future();
+  disk_scheduler_->Schedule({true, page.data_, page_id, std::move(prom)});
+  page.is_dirty_ = false;
+  future.get();
+  page.WUnlatch();
+  return true;
+}
 
-void BufferPoolManager::FlushAllPages() {}
+void BufferPoolManager::FlushAllPages() {
+  std::lock_guard<std::mutex> lock(latch_);
+  for (auto &[page_id, frame_id] : page_table_) {
+    Page &page = pages_[frame_id];
+    page.WLatch();
+    auto prom = disk_scheduler_->CreatePromise();
+    auto future = prom.get_future();
+    disk_scheduler_->Schedule({true, page.data_, page_id, std::move(prom)});
+    page.is_dirty_ = false;
+    page.WUnlatch();
+  }
+}
 
-auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { return false; }
+auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
+  std::lock_guard<std::mutex> lock(latch_);
+  if (page_table_.count(page_id) == 0U) {
+    return true;
+  }
+  frame_id_t fit = page_table_.at(page_id);
+  Page &page = pages_[fit];
+  page.WLatch();
+  if (page.GetPinCount() > 0) {
+    page.WUnlatch();
+    return false;
+  }
+  page.ResetMemory();
+  page.is_dirty_ = false;
+  page.page_id_ = INVALID_PAGE_ID;
+  page_table_.erase(page_id);
+  free_list_.push_back(fit);
+  replacer_->Remove(fit);
+  page.WUnlatch();
+  DeallocatePage(page_id);
+  return true;
+}
 
-auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
+auto BufferPoolManager::AllocatePage() -> page_id_t {
+  // std::lock_guard<std::mutex> lock(latch_);
+  if (!free_ids_.empty()) {
+    auto id = *free_ids_.begin();
+    free_ids_.pop_front();
+    return id;
+  }
+  return next_page_id_++;
+}
 
 auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, nullptr}; }
 
