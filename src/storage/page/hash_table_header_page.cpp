@@ -23,7 +23,7 @@ auto HashTableHeaderPage::GetLSN() const -> lsn_t { return lsn_; }
 
 void HashTableHeaderPage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
 
-void HashTableHeaderPage::AddBlockPageId(page_id_t page_id) { block_page_ids_[next_ind_ ++] = page_id; }
+void HashTableHeaderPage::AddBlockPageId(page_id_t page_id) { block_page_ids_[next_ind_++] = page_id; }
 
 auto HashTableHeaderPage::NumBlocks() -> size_t { return next_ind_; }
 

@@ -23,17 +23,17 @@ namespace bustub {
 void ExtendibleHTableDirectoryPage::Init(uint32_t max_depth) {
   max_depth_ = max_depth;
   global_depth_ = 0;
-  for(uint32_t i = 0, sz = MaxSize(); i < sz; i ++) {
+  for (uint32_t i = 0, sz = MaxSize(); i < sz; i++) {
     local_depths_[i] = 0;
     bucket_page_ids_[i] = INVALID_PAGE_ID;
   }
 }
 
-auto ExtendibleHTableDirectoryPage::HashToBucketIndex(uint32_t hash) const -> uint32_t { 
+auto ExtendibleHTableDirectoryPage::HashToBucketIndex(uint32_t hash) const -> uint32_t {
   return hash & ((1 << global_depth_) - 1);
 }
 
-auto ExtendibleHTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) const -> page_id_t { 
+auto ExtendibleHTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) const -> page_id_t {
   return bucket_page_ids_[bucket_idx];
 }
 
@@ -41,14 +41,13 @@ void ExtendibleHTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id
   bucket_page_ids_[bucket_idx] = bucket_page_id;
 }
 
-auto ExtendibleHTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) const -> uint32_t { 
+auto ExtendibleHTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) const -> uint32_t {
   uint32_t local_idx = bucket_idx & GetLocalDepthMask(bucket_idx);
-  return local_idx ^ (1 << GetLocalDepth(bucket_idx) - 1); //这里的镜像是基于local的，目前理解不是基于dir去找bucket层面的，而是bucket层面的。
+  return local_idx ^ (1 << GetLocalDepth(bucket_idx) -
+                               1);  //这里的镜像是基于local的，目前理解不是基于dir去找bucket层面的，而是bucket层面的。
 }
 
-auto ExtendibleHTableDirectoryPage::GetGlobalDepthMask() const -> uint32_t {
-  return (1 << global_depth_) - 1;
-}
+auto ExtendibleHTableDirectoryPage::GetGlobalDepthMask() const -> uint32_t { return (1 << global_depth_) - 1; }
 
 auto ExtendibleHTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) const -> uint32_t {
   return (1 << local_depths_[bucket_idx]) - 1;
@@ -60,11 +59,11 @@ auto ExtendibleHTableDirectoryPage::GetMaxDepth() const -> uint32_t { return max
 
 void ExtendibleHTableDirectoryPage::IncrGlobalDepth() {
   if (global_depth_ < max_depth_) {
-    global_depth_ ++;
+    global_depth_++;
   } else {
     return;
   }
-  for(uint32_t i = 0, sz = Size() >> 1; i < sz; i ++) {
+  for (uint32_t i = 0, sz = Size() >> 1; i < sz; i++) {
     local_depths_[i + sz] = local_depths_[i];
     bucket_page_ids_[i + sz] = bucket_page_ids_[i];
   }
@@ -72,15 +71,15 @@ void ExtendibleHTableDirectoryPage::IncrGlobalDepth() {
 
 void ExtendibleHTableDirectoryPage::DecrGlobalDepth() {
   if (global_depth_ > 0) {
-    global_depth_ --;
+    global_depth_--;
   }
 }
 
-auto ExtendibleHTableDirectoryPage::CanShrink() -> bool { 
+auto ExtendibleHTableDirectoryPage::CanShrink() -> bool {
   if (global_depth_ == 0) {
     return false;
   }
-  for(uint32_t i, sz = Size(); i < sz; i ++) {
+  for (uint32_t i, sz = Size(); i < sz; i++) {
     if (local_depths_[i] == global_depth_) {
       return false;
     }
@@ -92,19 +91,19 @@ auto ExtendibleHTableDirectoryPage::Size() const -> uint32_t { return 1 << globa
 
 auto ExtendibleHTableDirectoryPage::MaxSize() const -> uint32_t { return 1 << max_depth_; }
 
-auto ExtendibleHTableDirectoryPage::GetLocalDepth(uint32_t bucket_idx) const -> uint32_t { return local_depths_[bucket_idx]; }
+auto ExtendibleHTableDirectoryPage::GetLocalDepth(uint32_t bucket_idx) const -> uint32_t {
+  return local_depths_[bucket_idx];
+}
 
 void ExtendibleHTableDirectoryPage::SetLocalDepth(uint32_t bucket_idx, uint8_t local_depth) {
   local_depths_[bucket_idx] = local_depth;
 }
 
-void ExtendibleHTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) {
-  local_depths_[bucket_idx] ++;
-}
+void ExtendibleHTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) { local_depths_[bucket_idx]++; }
 
 void ExtendibleHTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) {
   if (local_depths_[bucket_idx] > 0) {
-    local_depths_[bucket_idx] --;
+    local_depths_[bucket_idx]--;
   }
 }
 

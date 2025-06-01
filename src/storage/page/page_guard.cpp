@@ -24,7 +24,7 @@ void BasicPageGuard::Drop() {
   }
 }
 
-auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & { 
+auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & {
   Drop();
   bpm_ = that.bpm_;
   page_ = that.page_;
@@ -32,12 +32,10 @@ auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard
   that.bpm_ = nullptr;
   that.page_ = nullptr;
   that.is_dirty_ = false;
-  return *this; 
+  return *this;
 }
 
-BasicPageGuard::~BasicPageGuard(){
-    Drop();
-};  // NOLINT
+BasicPageGuard::~BasicPageGuard() { Drop(); };  // NOLINT
 
 auto BasicPageGuard::UpgradeRead() -> ReadPageGuard {
   if (bpm_ != nullptr) {
@@ -61,15 +59,12 @@ auto BasicPageGuard::UpgradeWrite() -> WritePageGuard {
   return temp;
 }
 
-
-ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
-  guard_ = std::move(that.guard_);
-}
+ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept { guard_ = std::move(that.guard_); }
 
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
   Drop();
   guard_ = std::move(that.guard_);
-  return *this; 
+  return *this;
 }
 
 void ReadPageGuard::Drop() {
@@ -79,13 +74,9 @@ void ReadPageGuard::Drop() {
   }
 }
 
-ReadPageGuard::~ReadPageGuard() {
-  Drop();
-}  // NOLINT
+ReadPageGuard::~ReadPageGuard() { Drop(); }  // NOLINT
 
-WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
-  guard_ = std::move(that.guard_);
-}
+WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept { guard_ = std::move(that.guard_); }
 
 auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
   Drop();
@@ -95,13 +86,11 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
 
 void WritePageGuard::Drop() {
   if (guard_.bpm_ != nullptr) {
-    guard_.page_->WUnlatch();    
+    guard_.page_->WUnlatch();
     guard_.Drop();
   }
 }
 
-WritePageGuard::~WritePageGuard() {
-  Drop();
-}  // NOLINT
+WritePageGuard::~WritePageGuard() { Drop(); }  // NOLINT
 
 }  // namespace bustub
