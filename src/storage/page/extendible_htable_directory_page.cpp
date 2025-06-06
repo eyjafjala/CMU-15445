@@ -43,8 +43,7 @@ void ExtendibleHTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id
 
 auto ExtendibleHTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) const -> uint32_t {
   uint32_t local_idx = bucket_idx & GetLocalDepthMask(bucket_idx);
-  return local_idx ^ (1 << GetLocalDepth(bucket_idx) -
-                               1);  //这里的镜像是基于local的，目前理解不是基于dir去找bucket层面的，而是bucket层面的。
+  return local_idx ^ (1 << (GetLocalDepth(bucket_idx) - 1));  //寻找镜像idx
 }
 
 auto ExtendibleHTableDirectoryPage::GetGlobalDepthMask() const -> uint32_t { return (1 << global_depth_) - 1; }
@@ -79,7 +78,7 @@ auto ExtendibleHTableDirectoryPage::CanShrink() -> bool {
   if (global_depth_ == 0) {
     return false;
   }
-  for (uint32_t i, sz = Size(); i < sz; i++) {
+  for (uint32_t i = 0, sz = Size(); i < sz; i++) {
     if (local_depths_[i] == global_depth_) {
       return false;
     }

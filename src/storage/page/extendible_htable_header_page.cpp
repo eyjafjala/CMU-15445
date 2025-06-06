@@ -27,7 +27,7 @@ auto ExtendibleHTableHeaderPage::HashToDirectoryIndex(uint32_t hash) const -> ui
   if (max_depth_ == 0) {  //一位都不取
     return 0;
   }
-  return hash >> 32 - max_depth_;
+  return hash >> (32 - max_depth_);
 }
 
 auto ExtendibleHTableHeaderPage::GetDirectoryPageId(uint32_t directory_idx) const -> uint32_t {
